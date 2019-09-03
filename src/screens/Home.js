@@ -1,57 +1,93 @@
 import React, { Component } from 'react';
 import UserCell from '../components/UserCell';
 import '../assets/styles/home.css'
-import { setTimeout } from 'timers';
 
 export default class Home extends Component {
-    state = {
-        value: "",
-        users: [],
-    };
-    componentDidMount(){
-        this.timer = null
-    }
-    handleChange = event => {
-        const value = event.target.value;
-        this.setState({ value })
-        clearTimeout(this.timer)
-        this.timer = setTimeout(() => {
-            if (value.length >= 2) {
-                this.fetchData(value)
-            }
-        }, 1000);
 
-    }
+  state = {
+    value: "",
+    users: [],
+    totalCount: 0,
+    nextPage: 1
+  };
 
-    fetchData = async (value) => {
-        const API_URL = ` https://api.github.com/search/users?q=${value}`
-        const data = await fetch(API_URL);
-        const json = await data.json();
-        this.setState({ users: json.items })
-    };
+  componentDidMount() {
+    this.timer = null
+  };
 
-    render() {
-        //destructurings.
-        const { value } = this.state;
-        return (
-            <>
-                {this.renderInput({ value })}
-                <h4>Resultat:{this.state.users.length}</h4>
-                {this.renderListUsers()}
-            </>
-        )
+  next = () => {
+    const {nextPage} = this.state
+    this.setState({nextPage: nextPage + 1})
+    this.fetchData()
+  };
+
+  previous = () => {
+    const {nextPage} = this.state
+    this.setState({nextPage: this.state.nextPage - 1})
+    this.fetchData(nextPage)
+  };
+
+  handleChange = event => {
+    const value = event.target.value;
+    this.setState({value});
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      if (value.length >= 2) {
+        this.fetchData()
+      }
+    }, 1000);
+
+  };
+
+  fetchData = async () => {
+    const {value, nextPage} = this.state;
+    try {
+      const API_URL = `https://api.github.com/search/users?q=${value}&page=${nextPage}&per_page=8`;
+      const data = await fetch(API_URL);
+      const json = await data.json();
+      this.setState({totalCount: json.total_count})
+      this.setState({users: json.items})
+    } catch (error) {
+      console.log(error);
     }
-    renderInput = ({ value }) => (
-        <input
-            className="searchValue"
-            type="text"
-            value={value}
-            maxLength={20}
-            placeholder="Search users"
-            onChange={this.handleChange}
-        />
+  };
+
+  render() {
+    const {value, totalCount, users} = this.state;
+
+    return (
+      <>
+        {this.renderInput({value})}
+        {totalCount > 1 ? <h4 className="totalCount">{totalCount} users <span role="img" aria-label="icon">👦</span></h4> : null}
+        {users.length > 0
+          ? this.renderListUsers()
+          : <h1><span role="img" aria-label="icon">😢</span> No Data</h1>
+        }
+        {totalCount > 10 ? this.renderButton() : null}
+      </>
     )
-    renderListUsers = () => (
-        this.state.users.map((item) => <UserCell {...item} key={item.id} />)
-    )
+  };
+
+  renderInput = ({value}) => (
+    <input
+      className="searchValue"
+      type="text"
+      value={value}
+      maxLength={20}
+      placeholder="Search users"
+      onChange={this.handleChange}
+    />
+  );
+
+  renderListUsers = () => (
+    this.state.users.map((item) => <UserCell {...item} key={item.id}/>)
+  )
+
+  renderButton = () => (
+    <div className="boxBtn">
+      <button disabled={this.state.nextPage === 1} className="btn" onClick={this.previous}>Previous</button>
+      <button className="btn" onClick={this.next}>Next</button>
+    </div>
+  )
+
 }
